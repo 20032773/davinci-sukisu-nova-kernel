@@ -1880,13 +1880,15 @@ out_ret:
 	return retval;
 }
 
-#if defined(CONFIG_KSU_MANUAL_HOOK) || defined(CONFIG_KSU_SUSFS)
+#ifdef CONFIG_KSU
 __attribute__((hot))
 extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr,
 				void *argv, void *envp, int *flags);
+#ifdef CONFIG_KSU_SUSFS
 __attribute__((hot))
-extern int ksu_handle_post_execveat(int *fd, struct filename **filename_ptr,
+extern int ksu_handle_post_execveat_sucompat(int *fd, struct filename **filename_ptr,
 				void *argv, void *envp, int *flags, int *retval);
+#endif
 #endif
 
 static int do_execveat_common(int fd, struct filename *filename,
@@ -1894,12 +1896,14 @@ static int do_execveat_common(int fd, struct filename *filename,
 			      struct user_arg_ptr envp,
 			      int flags)
 {
-#if defined(CONFIG_KSU_MANUAL_HOOK) || defined(CONFIG_KSU_SUSFS)
+#ifdef CONFIG_KSU
 	int retval;
 
 	ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
 	retval = __do_execve_file(fd, filename, argv, envp, flags, NULL);
-	ksu_handle_post_execveat(&fd, &filename, &argv, &envp, &flags, &retval);
+#ifdef CONFIG_KSU_SUSFS
+	ksu_handle_post_execveat_sucompat(&fd, &filename, &argv, &envp, &flags, &retval);
+#endif
 	return retval;
 #else
 	return __do_execve_file(fd, filename, argv, envp, flags, NULL);

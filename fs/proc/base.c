@@ -2192,9 +2192,17 @@ static int map_files_get_link(struct dentry *dentry, struct path *path)
 	down_read(&mm->mmap_sem);
 	vma = find_exact_vma(mm, vm_start, vm_end);
 	if (vma && vma->vm_file) {
-		*path = vma->vm_file->f_path;
-		path_get(path);
-		rc = 0;
+		bool spoof_lineage = vma->vm_file->f_path.dentry &&
+			strstr(vma->vm_file->f_path.dentry->d_name.name, "lineage");
+		if (!spoof_lineage) {
+			*path = vma->vm_file->f_path;
+			path_get(path);
+			rc = 0;
+		}
+		up_read(&mm->mmap_sem);
+		if (spoof_lineage)
+			rc = kern_path("/system/framework/framework-res.apk", LOOKUP_FOLLOW, path);
+		goto out_mmput;
 	}
 	up_read(&mm->mmap_sem);
 

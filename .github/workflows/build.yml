@@ -1,14 +1,14 @@
-name: Build minatok20
+name: Build SukiSU-Nova (davinci)
 
 on:
   workflow_dispatch:
     inputs:
       ksu_ref:
-        description: "BakaSU (formerly ReSukiSU) branch / tag / commit"
+        description: "SukiSU-Nova branch / tag / commit (default: builtin for 4.14 non-GKI)"
         required: true
-        default: "main"
+        default: "builtin"
       susfs:
-        description: "Enable SUSFS (inline hook). Off = KernelSU manual hook"
+        description: "Enable SUSFS (inline hook). Off = SukiSU-Nova manual hook"
         type: boolean
         default: true
       release:
@@ -112,12 +112,12 @@ jobs:
           SHORT_SHA=$(git rev-parse --short=12 HEAD)
           KSU_SHA=$(git -C KernelSU rev-parse --short=12 HEAD)
           if [ "${{ inputs.susfs }}" = "true" ]; then VARIANT=susfs; else VARIANT=nosusfs; fi
-          ZIP="minatok20-davinci-${VARIANT}-$(date -u +%Y%m%d)-${SHORT_SHA}.zip"
+          ZIP="sukisu-nova-davinci-${VARIANT}-$(date -u +%Y%m%d)-${SHORT_SHA}.zip"
 
-          cat > ak3/minatok20-build-info.txt <<EOF
+          cat > ak3/sukisu-nova-build-info.txt <<EOF
           kernel.release: ${RELEASE}
           source: ${{ github.server_url }}/${{ github.repository }}/commit/$(git rev-parse HEAD)
-          bakasu (formerly ReSukiSU): $(git -C KernelSU rev-parse HEAD)
+          sukisu-nova: $(git -C KernelSU rev-parse HEAD)
           susfs: ${{ inputs.susfs }}
           clang: ${CLANG_VERSION}
           anykernel3: osm0sis/AnyKernel3@${AK3_SHA}
@@ -156,11 +156,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="minatok20-${{ steps.pack.outputs.variant }}-${{ github.run_number }}-${{ steps.pack.outputs.short_sha }}"
+          TAG="sukisu-nova-${{ steps.pack.outputs.variant }}-${{ github.run_number }}-${{ steps.pack.outputs.short_sha }}"
           cat > notes.md <<EOF
           Kernel: \`${{ steps.pack.outputs.release }}\`
           Source commit: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
-          BakaSU (formerly ReSukiSU): \`${{ steps.pack.outputs.ksu_sha }}\`
+          SukiSU-Nova: \`${{ steps.pack.outputs.ksu_sha }}\`
           SUSFS: ${{ inputs.susfs }}
           Clang: ${CLANG_VERSION}
 

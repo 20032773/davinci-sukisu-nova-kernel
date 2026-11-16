@@ -244,6 +244,7 @@ void susfs_add_sus_map(void __user **user_info);
 #ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER
 void susfs_set_priority_uid_filter(void __user **user_info);
 void susfs_parse_priority_app_strings(void);
+bool susfs_is_priority_uid_filtered(uid_t uid);
 #endif // #ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER
 
 void susfs_set_avc_log_spoofing(void __user **user_info);

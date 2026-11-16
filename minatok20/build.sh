@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0
 #
-# minatok20 build script for Xiaomi Mi 9T (davinci)
+# SukiSU-Nova build script for Xiaomi Mi 9T / Redmi K20 (davinci)
 # Used by both GitHub Actions and local builds.
 #
 # Environment variables:
 #   CLANG_DIR   Path to an AOSP clang prebuilt (required)
 #   OUT         Output directory (default: ./out)
-#   KSU         true/false  Integrate BakaSU (formerly ReSukiSU) (default: true)
-#   KSU_REF     BakaSU branch/tag/commit (default: main)
+#   KSU         true/false  Integrate SukiSU-Nova (default: true)
+#   KSU_REF     SukiSU-Nova branch/tag/commit (default: builtin)
 #   SUSFS       true/false  Use SUSFS inline hook; false = KSU manual hook (default: true)
 #   JOBS        Parallel jobs (default: nproc)
 #   USE_CCACHE  true/false (default: true if ccache is installed)
@@ -21,7 +21,7 @@ cd "$ROOT"
 : "${CLANG_DIR:?CLANG_DIR must point to an AOSP clang prebuilt}"
 OUT="${OUT:-$ROOT/out}"
 KSU="${KSU:-true}"
-KSU_REF="${KSU_REF:-main}"
+KSU_REF="${KSU_REF:-builtin}"
 SUSFS="${SUSFS:-true}"
 JOBS="${JOBS:-$(nproc)}"
 if [ -z "${USE_CCACHE:-}" ]; then
@@ -29,7 +29,7 @@ if [ -z "${USE_CCACHE:-}" ]; then
 fi
 
 export PATH="$CLANG_DIR/bin:$PATH"
-export KBUILD_BUILD_USER="minatok20"
+export KBUILD_BUILD_USER="sukisu-nova"
 export KBUILD_BUILD_HOST="github-actions"
 
 echo "== clang: $(clang --version | head -n1)"
@@ -39,18 +39,18 @@ echo "== KSU=$KSU KSU_REF=$KSU_REF SUSFS=$SUSFS JOBS=$JOBS CCACHE=$USE_CCACHE"
 echo "-g$(git rev-parse --short=12 HEAD)" > .scmversion
 
 # ---------------------------------------------------------------------------
-# BakaSU (formerly ReSukiSU): official setup.sh, tracking the given ref
+# SukiSU-Nova: official setup.sh from builtin branch, tracking the given ref
 # ---------------------------------------------------------------------------
 if [ "$KSU" = "true" ]; then
 	if [ ! -d KernelSU ]; then
-		curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/main/kernel/setup.sh" | bash -s "$KSU_REF"
+		curl -LSs "https://raw.githubusercontent.com/SukiSU-Nova/SukiSU-Nova/builtin/kernel/setup.sh" | bash -s "$KSU_REF"
 	else
 		echo "== KernelSU already present, checking out $KSU_REF"
 		git -C KernelSU fetch --tags origin
 		git -C KernelSU checkout -q "$KSU_REF"
 		git -C KernelSU pull -q --ff-only || true
 	fi
-	echo "== BakaSU commit: $(git -C KernelSU rev-parse HEAD)"
+	echo "== SukiSU-Nova commit: $(git -C KernelSU rev-parse HEAD)"
 fi
 
 # ---------------------------------------------------------------------------
@@ -75,9 +75,9 @@ MAKE_ARGS=(
 )
 
 mkdir -p "$OUT"
-DEFCONFIGS="vendor/sdmsteppe-perf_defconfig vendor/davinci.config vendor/minatok20.config vendor/minatok20_stage2.config"
+DEFCONFIGS="vendor/sdmsteppe-perf_defconfig vendor/davinci.config vendor/minatok20.config vendor/minatok20_stage2.config vendor/minatok20_stage3.config"
 # The SUSFS feature flags live in a fragment so the exact feature set is
-# pinned (and sus_kstat/sus_map/open_redirect stay off on 4.14).
+# pinned (and sus_kstat/sus_map/open_redirect/sus_mount stay off on 4.14).
 if [ "$KSU" = "true" ] && [ "$SUSFS" = "true" ]; then
 	DEFCONFIGS="$DEFCONFIGS vendor/minatok20_susfs.config"
 fi
@@ -85,11 +85,11 @@ make "${MAKE_ARGS[@]}" $DEFCONFIGS
 
 CFG="$ROOT/scripts/config --file $OUT/.config"
 if [ "$KSU" = "true" ]; then
-	$CFG -e KSU
+	$CFG -e KSU -e KPM -e KSU_FEATURE_ADBROOT
 	if [ "$SUSFS" = "true" ]; then
-		$CFG -d KSU_MANUAL_HOOK -e KSU_SUSFS
+		$CFG -e KSU_SUSFS -e KSU_SUSFS_PRIORITY_UID_FILTER
 	else
-		$CFG -d KSU_SUSFS -e KSU_MANUAL_HOOK
+		$CFG -d KSU_SUSFS
 	fi
 else
 	$CFG -d KSU
@@ -99,10 +99,14 @@ make "${MAKE_ARGS[@]}" olddefconfig
 # Verify the selected options survived olddefconfig
 if [ "$KSU" = "true" ]; then
 	grep -q '^CONFIG_KSU=y' "$OUT/.config" || { echo "CONFIG_KSU not enabled"; exit 1; }
+	grep -q '^CONFIG_KPM=y' "$OUT/.config" || { echo "CONFIG_KPM not enabled"; exit 1; }
 	if [ "$SUSFS" = "true" ]; then
 		grep -q '^CONFIG_KSU_SUSFS=y' "$OUT/.config" || { echo "CONFIG_KSU_SUSFS not enabled"; exit 1; }
+		grep -q '^CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=y' "$OUT/.config" || { echo "CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER not enabled"; exit 1; }
 	else
-		grep -q '^CONFIG_KSU_MANUAL_HOOK=y' "$OUT/.config" || { echo "CONFIG_KSU_MANUAL_HOOK not enabled"; exit 1; }
+		if grep -q '^CONFIG_KSU_SUSFS=y' "$OUT/.config"; then
+			echo "CONFIG_KSU_SUSFS should be disabled when SUSFS=false"; exit 1
+		fi
 	fi
 fi
 for opt in AUDIT KALLSYMS KALLSYMS_ALL; do
