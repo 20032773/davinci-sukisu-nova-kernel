@@ -88,6 +88,7 @@ jobs:
           SUSFS: ${{ inputs.susfs }}
           OUT: ${{ github.workspace }}/out
         run: |
+          set -o pipefail
           ccache -z
           bash minatok20/build.sh 2>&1 | tee build.log
           ccache -s

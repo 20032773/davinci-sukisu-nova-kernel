@@ -51,6 +51,10 @@ if [ "$KSU" = "true" ]; then
 		git -C KernelSU pull -q --ff-only || true
 	fi
 	echo "== SukiSU-Nova commit: $(git -C KernelSU rev-parse HEAD)"
+
+	# Patch SukiSU-Nova (builtin) for Linux 4.14 non-GKI compatibility:
+	# 1. <linux/static_call.h> only exists on 5.10+ (and is unused in KernelSU)
+	sed -i '/#include <linux\/static_call.h>/d' KernelSU/kernel/kernel_includes.h
 fi
 
 # ---------------------------------------------------------------------------
