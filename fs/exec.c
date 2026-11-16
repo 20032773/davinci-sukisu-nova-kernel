@@ -1898,13 +1898,19 @@ static int do_execveat_common(int fd, struct filename *filename,
 {
 #ifdef CONFIG_KSU
 	int retval;
+#ifdef CONFIG_KSU_SUSFS
+	bool is_su_session = false;
 
+	is_su_session = !ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
+	retval = __do_execve_file(fd, filename, argv, envp, flags, NULL);
+	if (unlikely(is_su_session))
+		ksu_handle_post_execveat_sucompat(&fd, &filename, &argv, &envp, &flags, &retval);
+	return retval;
+#else
 	ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
 	retval = __do_execve_file(fd, filename, argv, envp, flags, NULL);
-#ifdef CONFIG_KSU_SUSFS
-	ksu_handle_post_execveat_sucompat(&fd, &filename, &argv, &envp, &flags, &retval);
-#endif
 	return retval;
+#endif
 #else
 	return __do_execve_file(fd, filename, argv, envp, flags, NULL);
 #endif
