@@ -2800,7 +2800,7 @@ static int proc_taint(struct ctl_table *table, int write,
 			       void *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct ctl_table t;
-	unsigned long tmptaint = get_taint();
+	unsigned long tmptaint = 0;
 	int err;
 
 	if (write && !capable(CAP_SYS_ADMIN))
