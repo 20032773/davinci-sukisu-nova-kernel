@@ -72,7 +72,7 @@ jobs:
           rm -f "$RUNNER_TEMP/clang.tgz"
 
       - name: Restore ccache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-${{ env.CLANG_VERSION }}-susfs${{ inputs.susfs }}-${{ github.sha }}
@@ -92,6 +92,13 @@ jobs:
           ccache -z
           bash minatok20/build.sh 2>&1 | tee build.log
           ccache -s
+
+      - name: Save ccache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-${{ env.CLANG_VERSION }}-susfs${{ inputs.susfs }}-${{ github.sha }}
 
       - name: Build dtb and dtbo.img
         run: |

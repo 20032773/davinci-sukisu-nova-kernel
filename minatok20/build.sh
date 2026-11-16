@@ -55,6 +55,10 @@ if [ "$KSU" = "true" ]; then
 	# Patch SukiSU-Nova (builtin) for Linux 4.14 non-GKI compatibility:
 	# 1. <linux/static_call.h> only exists on 5.10+ (and is unused in KernelSU)
 	sed -i '/#include <linux\/static_call.h>/d' KernelSU/kernel/kernel_includes.h
+	# 2. Linux 4.14 access_ok() takes 3 arguments; use ksu_access_ok() wrapper from kernel_compat.h
+	sed -i 's/!access_ok(/!ksu_access_ok(/g' KernelSU/kernel/extension/kpm/kpm.c
+	# 3. Qualcomm 4.14 backported task_struct->thread_pid from 4.19 (replacing pids[PIDTYPE_PID])
+	sed -i 's/LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)/LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)/g' KernelSU/kernel/extension/kpm/super_access.c
 fi
 
 # ---------------------------------------------------------------------------
