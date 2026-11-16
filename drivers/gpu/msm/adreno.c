@@ -1165,8 +1165,9 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 		&device->pwrctrl.pm_qos_wakeup_latency))
 		device->pwrctrl.pm_qos_wakeup_latency = 101;
 
-	if (of_property_read_u32(node, "qcom,idle-timeout", &timeout))
-		timeout = 80;
+	if (of_property_read_u32(node, "qcom,idle-timeout", &timeout) ||
+	    timeout > 58)
+		timeout = 58;
 
 	device->pwrctrl.interval_timeout = msecs_to_jiffies(timeout);
 

@@ -99,6 +99,10 @@
 #include <asm/hardwall.h>
 #endif
 #include <trace/events/oom.h>
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
+#include <linux/susfs_def.h>
+#endif
 #include "internal.h"
 #include "fd.h"
 
@@ -1807,9 +1811,24 @@ static int do_proc_readlink(struct path *path, char __user *buffer, int buflen)
 	char *tmp = (char *)__get_free_page(GFP_KERNEL);
 	char *pathname;
 	int len;
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+	struct inode *inode;
+#endif
 
 	if (!tmp)
 		return -ENOMEM;
+
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+	inode = d_backing_inode(path->dentry);
+	if (SUSFS_IS_INODE_OPEN_REDIRECT(inode)) {
+		if (!susfs_open_redirect_spoof_do_proc_readlink(inode, tmp, buflen)) {
+			len = strlen(tmp);
+			if (copy_to_user(buffer, tmp, len))
+				len = -EFAULT;
+			goto out;
+		}
+	}
+#endif
 
 	pathname = d_path(path, tmp, PAGE_SIZE);
 	len = PTR_ERR(pathname);

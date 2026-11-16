@@ -1058,7 +1058,8 @@ static int sugov_start(struct cpufreq_policy *policy)
 		sg_cpu->cpu = cpu;
 		sg_cpu->sg_policy = sg_policy;
 		sg_cpu->flags = SCHED_CPUFREQ_DL;
-		sg_cpu->iowait_boost_max = policy->cpuinfo.max_freq;
+		sg_cpu->iowait_boost_max =
+			min_t(unsigned int, policy->cpuinfo.max_freq, 1497600U);
 	}
 
 	for_each_cpu(cpu, policy->cpus) {

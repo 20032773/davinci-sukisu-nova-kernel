@@ -16,7 +16,9 @@
 #ifndef __ASM_CHECKSUM_H
 #define __ASM_CHECKSUM_H
 
+#include <linux/in6.h>
 #include <linux/types.h>
+#include <asm/byteorder.h>
 
 static inline __sum16 csum_fold(__wsum csum)
 {
@@ -46,6 +48,38 @@ static inline __sum16 ip_fast_csum(const void *iph, unsigned int ihl)
 	return csum_fold((__force u32)(sum >> 32));
 }
 #define ip_fast_csum ip_fast_csum
+
+#define _HAVE_ARCH_IPV6_CSUM
+static inline __sum16 csum_ipv6_magic(const struct in6_addr *saddr,
+				      const struct in6_addr *daddr,
+				      __u32 len, __u8 proto, __wsum csum)
+{
+	__uint128_t src, dst;
+	u64 sum = (__force u64)csum;
+
+	src = *(const __uint128_t *)saddr->s6_addr;
+	dst = *(const __uint128_t *)daddr->s6_addr;
+
+	len = (__force u32)__cpu_to_be32(len);
+#ifdef __AARCH64EB__
+	sum += (u32)proto << 24;
+#else
+	sum += (u64)proto << 56;
+#endif
+	asm("adds	%0, %0, %1\n"
+	    "adcs	%0, %0, %2\n"
+	    "adcs	%0, %0, %3\n"
+	    "adcs	%0, %0, %4\n"
+	    "adcs	%0, %0, %5\n"
+	    "adc	%0, %0, xzr\n"
+	    : "+r" (sum)
+	    : "r" (src), "r" (src >> 64), "r" (dst), "r" (dst >> 64),
+	      "r" ((u64)len)
+	    : "cc");
+
+	sum += ((sum >> 32) | (sum << 32));
+	return csum_fold((__force __wsum)(sum >> 32));
+}
 
 #include <asm-generic/checksum.h>
 

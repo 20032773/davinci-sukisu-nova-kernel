@@ -457,14 +457,10 @@ out_copy_to_user:
 static DEFINE_MUTEX(susfs_mutex_lock_sus_kstat);
 static DEFINE_HASHTABLE(SUS_KSTAT_HLIST, 14);
 
-extern int calculate_f_flags_wrapper(struct vfsmount *mnt);
-extern int statfs_by_dentry_wrapper(struct dentry *dentry, struct kstatfs *buf);
-
 static int susfs_mark_inode_sus_kstat(char *target_pathname, struct st_susfs_sus_kstat_hlist *new_entry, bool is_update) {
 	struct path path;
 	struct inode *inode = NULL;
 	struct fuse_inode *fi = NULL;
-	struct vfsmount *no_sus_vfsmnt = NULL;
 	int err = 0;
 
 	err = kern_path(target_pathname, 0, &path);
@@ -492,13 +488,8 @@ static int susfs_mark_inode_sus_kstat(char *target_pathname, struct st_susfs_sus
 
 		new_entry->is_fuse = true;
 		new_entry->target_dev = fi->inode.i_sb->s_dev;
-		new_entry->spoofed_mnt_id = susfs_get_non_sus_mnt_id_from_mnt(real_mount(path.mnt));
-		no_sus_vfsmnt = susfs_get_non_sus_vfsmnt_from_vfsmnt(path.mnt);
-		err = statfs_by_dentry_wrapper(no_sus_vfsmnt->mnt_root, &new_entry->spoofed_kstatfs);
-		if (!err)
-			new_entry->spoofed_kstatfs.f_flags = calculate_f_flags_wrapper(no_sus_vfsmnt);
-		dput(no_sus_vfsmnt->mnt_root);
-		mntput(no_sus_vfsmnt);
+		new_entry->spoofed_mnt_id = real_mount(path.mnt)->mnt_id;
+		err = vfs_statfs(&path, &new_entry->spoofed_kstatfs);
 		if (err)
 			goto out_path_put_path;
 
@@ -513,13 +504,8 @@ static int susfs_mark_inode_sus_kstat(char *target_pathname, struct st_susfs_sus
 
 	new_entry->is_fuse = false;
 	new_entry->target_dev = inode->i_sb->s_dev;
-	new_entry->spoofed_mnt_id = susfs_get_non_sus_mnt_id_from_mnt(real_mount(path.mnt));
-	no_sus_vfsmnt = susfs_get_non_sus_vfsmnt_from_vfsmnt(path.mnt);
-	err = statfs_by_dentry_wrapper(no_sus_vfsmnt->mnt_root, &new_entry->spoofed_kstatfs);
-	if (!err)
-		new_entry->spoofed_kstatfs.f_flags = calculate_f_flags_wrapper(no_sus_vfsmnt);
-	dput(no_sus_vfsmnt->mnt_root);
-	mntput(no_sus_vfsmnt);
+	new_entry->spoofed_mnt_id = real_mount(path.mnt)->mnt_id;
+	err = vfs_statfs(&path, &new_entry->spoofed_kstatfs);
 	if (err)
 		goto out_path_put_path;
 
@@ -1280,8 +1266,11 @@ int susfs_open_redirect_spoof_vfs_readlink(struct inode *inode, char __user *buf
 				srcu_read_unlock(&susfs_srcu_open_redirect, srcu_idx);
 				return -EFAULT;
 			}
-			srcu_read_unlock(&susfs_srcu_open_redirect, srcu_idx);
-			return 0;
+			{
+				int ret_len = strlen(entry->info.redirected_pathname);
+				srcu_read_unlock(&susfs_srcu_open_redirect, srcu_idx);
+				return ret_len;
+			}
 		}
 	}
 	srcu_read_unlock(&susfs_srcu_open_redirect, srcu_idx);

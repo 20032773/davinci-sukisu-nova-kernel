@@ -24,6 +24,10 @@
 #include <asm/elf.h>
 #include <asm/tlb.h>
 #include <asm/tlbflush.h>
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
+#include <linux/susfs_def.h>
+#endif
 #include "internal.h"
 
 void task_mem(struct seq_file *m, struct mm_struct *mm)
@@ -377,9 +381,36 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 
 	if (file) {
 		struct inode *inode = file_inode(vma->vm_file);
+#ifdef CONFIG_KSU_SUSFS_SUS_MAP
+		if (SUSFS_IS_INODE_SUS_MAP(inode))
+			return;
+#endif
 		dev = inode->i_sb->s_dev;
 		ino = inode->i_ino;
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+		if (unlikely(susfs_is_current_proc_umounted_app())) {
+			bool is_fuse = false;
+			if (unlikely(susfs_is_inode_sus_kstat(inode, &is_fuse)))
+				susfs_sus_kstat_spoof_show_map_vma(inode, &dev, &ino);
+		}
+#endif
 		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+		if (SUSFS_IS_INODE_OPEN_REDIRECT(inode)) {
+			char *spoofed_name = NULL;
+			int srcu_idx = srcu_read_lock(&susfs_srcu_open_redirect);
+			if (!susfs_open_redirect_spoof_show_map_vma_srcu(inode, &ino, &dev, &spoofed_name)) {
+				start = vma->vm_start;
+				end = vma->vm_end;
+				show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino);
+				seq_pad(m, ' ');
+				seq_puts(m, spoofed_name);
+				srcu_read_unlock(&susfs_srcu_open_redirect, srcu_idx);
+				goto done;
+			}
+			srcu_read_unlock(&susfs_srcu_open_redirect, srcu_idx);
+		}
+#endif
 		dentry = file->f_path.dentry;
 		if (dentry) {
 			const char *path = (const char *)dentry->d_name.name;
@@ -851,6 +882,15 @@ static int show_smap(struct seq_file *m, void *v, int is_pid)
 	int ret = 0;
 	bool rollup_mode;
 	bool last_vma;
+
+#ifdef CONFIG_KSU_SUSFS_SUS_MAP
+	if (vma->vm_file && SUSFS_IS_INODE_SUS_MAP(file_inode(vma->vm_file))) {
+		if (!priv->rollup) {
+			m_cache_vma(m, vma);
+			return 0;
+		}
+	}
+#endif
 
 	if (priv->rollup) {
 		rollup_mode = true;
@@ -1391,6 +1431,11 @@ static pagemap_entry_t pte_to_pagemap_entry(struct pagemapread *pm,
 {
 	u64 frame = 0, flags = 0;
 	struct page *page = NULL;
+
+#ifdef CONFIG_KSU_SUSFS_SUS_MAP
+	if (vma->vm_file && SUSFS_IS_INODE_SUS_MAP(file_inode(vma->vm_file)))
+		return make_pme(0, 0);
+#endif
 
 	if (pte_present(pte)) {
 		if (pm->show_pfn)

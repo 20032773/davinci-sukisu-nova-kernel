@@ -8,6 +8,7 @@
 #include <linux/path.h>
 #include <linux/susfs_def.h>
 #include <linux/statfs.h>
+#include <linux/srcu.h>
 
 #define SUSFS_VERSION "v2.4.0"
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
@@ -197,6 +198,11 @@ struct st_susfs_version {
 /***********************/
 /* FORWARD DECLARATION */
 /***********************/
+struct inode;
+struct kstat;
+struct filename;
+struct srcu_struct;
+
 /* sus_path */
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
 void susfs_add_sus_path(void __user **user_info);
@@ -212,6 +218,12 @@ void susfs_set_hide_sus_mnts_for_non_su_procs(void __user **user_info);
 #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 void susfs_add_sus_kstat(void __user **user_info);
 void susfs_update_sus_kstat(void __user **user_info);
+bool susfs_is_inode_sus_kstat(struct inode *inode, bool *out_is_fuse);
+void susfs_sus_kstat_spoof_generic_fillattr(struct inode *inode, struct kstat *stat, u32 result_mask);
+void susfs_sus_kstat_spoof_show_map_vma(struct inode *inode, dev_t *out_dev, unsigned long *out_ino);
+int susfs_sus_kstat_spoof_vfs_statfs(struct inode *inode, struct kstatfs *buf, bool *is_fuse);
+void susfs_sus_kstat_spoof_inotify_fdinfo(unsigned long *out_target_ino, dev_t *out_target_dev);
+void susfs_sus_kstat_spoof_proc_fd_seq_show(int *out_target_mnt_id, unsigned long *out_target_ino, dev_t target_dev);
 #endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 
 /* spoof_uname */
@@ -232,7 +244,12 @@ void susfs_set_cmdline_or_bootconfig(void __user **user_info);
 
 /* open_redirect */
 #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+extern struct srcu_struct susfs_srcu_open_redirect;
 void susfs_add_open_redirect(void __user **user_info);
+struct filename *susfs_open_redirect_spoof_do_sys_openat(struct inode *inode);
+int susfs_open_redirect_spoof_vfs_readlink(struct inode *inode, char __user *buffer, int buflen);
+int susfs_open_redirect_spoof_do_proc_readlink(struct inode *inode, char *tmp_buf, int buflen);
+int susfs_open_redirect_spoof_show_map_vma_srcu(struct inode *inode, unsigned long *out_ino, dev_t *out_dev, char **out_spoofed_name);
 #endif // #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
 
 /* sus_map */

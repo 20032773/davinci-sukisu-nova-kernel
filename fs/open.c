@@ -34,6 +34,7 @@
 
 #include "internal.h"
 #ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
 #include <linux/susfs_def.h>
 #endif
 
@@ -1109,11 +1110,21 @@ struct file *filp_clone_open(struct file *oldfile)
 }
 EXPORT_SYMBOL(filp_clone_open);
 
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+extern int filename_lookup(int dfd, struct filename *name, unsigned flags,
+			   struct path *path, struct path *root);
+#endif
+
 long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 {
 	struct open_flags op;
 	int fd = build_open_flags(flags, mode, &op);
 	struct filename *tmp;
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+	struct path path;
+	struct inode *inode;
+	struct filename *redirect_filename = NULL;
+#endif
 
 	if (fd)
 		return fd;
@@ -1121,6 +1132,22 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 	tmp = getname(filename);
 	if (IS_ERR(tmp))
 		return PTR_ERR(tmp);
+
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+	if (!(flags & O_CREAT)) {
+		if (!filename_lookup(dfd, tmp, op.lookup_flags, &path, NULL)) {
+			inode = d_backing_inode(path.dentry);
+			if (SUSFS_IS_INODE_OPEN_REDIRECT_WITHOUT_UID_CHECK(inode)) {
+				redirect_filename = susfs_open_redirect_spoof_do_sys_openat(inode);
+				if (redirect_filename && !IS_ERR(redirect_filename)) {
+					putname(tmp);
+					tmp = redirect_filename;
+				}
+			}
+			path_put(&path);
+		}
+	}
+#endif
 
 	fd = get_unused_fd_flags(flags);
 	if (fd >= 0) {

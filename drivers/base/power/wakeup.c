@@ -577,12 +577,31 @@ static bool wakeup_source_not_registered(struct wakeup_source *ws)
  * core of the event by incrementing the counter of of wakeup events being
  * processed.
  */
+static bool wakeup_source_should_block(struct wakeup_source *ws)
+{
+	if (!ws || !ws->name)
+		return false;
+
+	if (!strcmp(ws->name, "qcom_rx_wakelock") ||
+	    !strcmp(ws->name, "wlan_pno_wl") ||
+	    !strcmp(ws->name, "wlan_extscan_wl") ||
+	    !strcmp(ws->name, "ipa_WS") ||
+	    !strcmp(ws->name, "NETLINK") ||
+	    !strncmp(ws->name, "[timerfd]", 9))
+		return true;
+
+	return false;
+}
+
 static void wakeup_source_activate(struct wakeup_source *ws)
 {
 	unsigned int cec;
 
 	if (WARN_ONCE(wakeup_source_not_registered(ws),
 			"unregistered wakeup source\n"))
+		return;
+
+	if (wakeup_source_should_block(ws))
 		return;
 
 	ws->active = true;
