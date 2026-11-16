@@ -9,6 +9,7 @@
 #include <linux/susfs_def.h>
 #include <linux/statfs.h>
 #include <linux/srcu.h>
+#include <linux/jump_label.h>
 
 #define SUSFS_VERSION "v2.4.0"
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
@@ -244,6 +245,7 @@ void susfs_set_cmdline_or_bootconfig(void __user **user_info);
 
 /* open_redirect */
 #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+extern struct static_key_false susfs_has_open_redirect;
 extern struct srcu_struct susfs_srcu_open_redirect;
 void susfs_add_open_redirect(void __user **user_info);
 struct filename *susfs_open_redirect_spoof_do_sys_openat(struct inode *inode);

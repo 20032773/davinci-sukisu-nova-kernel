@@ -585,9 +585,7 @@ static bool wakeup_source_should_block(struct wakeup_source *ws)
 	if (!strcmp(ws->name, "qcom_rx_wakelock") ||
 	    !strcmp(ws->name, "wlan_pno_wl") ||
 	    !strcmp(ws->name, "wlan_extscan_wl") ||
-	    !strcmp(ws->name, "ipa_WS") ||
-	    !strcmp(ws->name, "NETLINK") ||
-	    !strncmp(ws->name, "[timerfd]", 9))
+	    !strcmp(ws->name, "ipa_WS"))
 		return true;
 
 	return false;

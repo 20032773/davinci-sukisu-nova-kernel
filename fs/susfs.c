@@ -1037,6 +1037,7 @@ void susfs_spoof_cmdline_or_bootconfig(struct seq_file *m) {
 
 /* open_redirect */
 #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+DEFINE_STATIC_KEY_FALSE(susfs_has_open_redirect);
 static DEFINE_MUTEX(susfs_mutex_lock_open_redirect);
 static DEFINE_HASHTABLE(OPEN_REDIRECT_HLIST, 14);
 DEFINE_SRCU(susfs_srcu_open_redirect);
@@ -1169,6 +1170,8 @@ void susfs_add_open_redirect(void __user **user_info) {
 		// we need to mark both target and redirected path inode just for spoofing readlink as well
 		set_bit(AS_FLAGS_OPEN_REDIRECT, &redirected_inode->i_mapping->flags);
 		set_bit(AS_FLAGS_OPEN_REDIRECT, &target_inode->i_mapping->flags);
+		if (!static_key_enabled(&susfs_has_open_redirect))
+			static_branch_enable(&susfs_has_open_redirect);
 		mutex_unlock(&susfs_mutex_lock_open_redirect);
 		synchronize_srcu(&susfs_srcu_open_redirect);
 		if (is_second_dup_found)
@@ -1187,6 +1190,8 @@ void susfs_add_open_redirect(void __user **user_info) {
 	// we need to mark both target and redirected path inode just for spoofing readlink as well
 	set_bit(AS_FLAGS_OPEN_REDIRECT, &redirected_inode->i_mapping->flags);
 	set_bit(AS_FLAGS_OPEN_REDIRECT, &target_inode->i_mapping->flags);
+	if (!static_key_enabled(&susfs_has_open_redirect))
+		static_branch_enable(&susfs_has_open_redirect);
 	mutex_unlock(&susfs_mutex_lock_open_redirect);
 	info.err = 0;
 
